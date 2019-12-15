@@ -592,7 +592,7 @@ float mbit_accel(const char *coor ){
 
 
 
-void mbit_tone( int freq, int dur){
+void tone(  uint8_t  pin, int freq, unsigned long dur ){
  
   uint32_t ulPin;
   uint32_t f =TIMERFREQ/freq;
@@ -626,6 +626,11 @@ void mbit_tone( int freq, int dur){
   tone_start=millis();
   tone_duration=dur;
   
+}
+
+void noTone(uint8_t _pin){
+   tone_start=0; 
+   TONE_TIMER->TASKS_STOP = 1;
 }
 
 

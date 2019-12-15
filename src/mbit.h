@@ -83,7 +83,8 @@ extern bool     mbit_P2_pressed();
 
 extern uint8_t 	mbit_temp(void);
 extern uint16_t mbit_light_level(void);
-extern void     mbit_tone( int freq, int dur);
+extern void     tone(uint8_t  pin, int freq, unsigned long dur);
+extern void     noTone(uint8_t _pin);
 
 /*
 ¿?
