@@ -1,5 +1,10 @@
 
-micro:bit Arduino Library  developed by Distintiva Solutions to use with [eBlock Scratch based App](https://github.com/distintiva/eBlock)
+BBC micro:bit library for Arduino developed by Distintiva Solutions to use with [eBlock Scratch based App](https://github.com/distintiva/eBlock)
+
+**You can use with Arduino IDE, and arduino-cli too**
+
+
+![eBlock microbit](eblock.png)
 
 
 ### Sample code
