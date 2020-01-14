@@ -1,4 +1,4 @@
-#include "arduino.h"
+#include "Arduino.h"
 #include "mbit.h"
 #include "MMA8653.h"
 #include "nrf_soc.h"
@@ -6,6 +6,9 @@
 
 #include "mbit_utils.h"
 #include "mbit_display.h"
+
+
+#include "eblock.h"
 
 //void mbit_timer1_tick();
 void mbit_timer2_tick();
@@ -26,39 +29,6 @@ uint16_t tone_duration=0;
 
 void mbit_light_level_check();
  
-
-typedef struct {
-        uint8_t id;
-        void (*event)();
-} mbit_event;
-
-mbit_event* events_list = NULL;
-uint8_t events_count =0; 
-
-bool mbit_event_exists( uint8_t event_id ){
-    for(uint8_t e =0; e< events_count; e++){
-        if( events_list[e].id == event_id ) return true;
-    }
-    return false;    
-} 
-
-void mbit_event_fire( uint8_t event_id ){
-    for(uint8_t e =0; e< events_count; e++){
-        if( events_list[e].id == event_id ){
-               events_list[e].event();  
-               return;
-        } 
-    }
-    
-} 
-
-
-
-volatile uint8_t _btn_A = 0;
-volatile uint8_t _btn_B = 0;
-volatile uint8_t _pinmode_btn_A = 0;
-volatile uint8_t _pinmode_btn_B = 0;
-
 volatile uint8_t _pin_P0 = 0;
 volatile uint8_t _pin_P1 = 0;
 volatile uint8_t _pin_P2 = 0;
@@ -69,20 +39,22 @@ volatile uint8_t _pinmode_pin_P2 = 0;
 
 void mbit_check_btns(bool fire_event=false){
 
-   if( _pinmode_btn_A && !digitalRead(PIN_BTN_A) && _btn_A==0 ){
-      _btn_A=1; 
-      if(fire_event) mbit_event_fire( WHENBUTTON_A_PRESSED_CALLBACK ); 
-   }else if( _pinmode_btn_A && digitalRead(PIN_BTN_A) && _btn_A==1 ){
-      _btn_A=0; 
-      if(fire_event) mbit_event_fire( WHENBUTTON_A_RELEASED_CALLBACK ); 
+   e_set_mode(PIN_BTN_A, INPUT_PULLUP);
+   e_set_mode(PIN_BTN_B, INPUT_PULLUP);
+
+   if( fire_event && e_is_button_down(PIN_BTN_A) ){
+     /* _btn_A=1; 
+     
+      if(fire_event)*/ e_event_call( WHENBUTTON_A_PRESSED_CALLBACK );    
+   }else if(fire_event && e_is_button_up(PIN_BTN_A) ){
+     /* _btn_A=0; 
+      if(fire_event)*/ e_event_call( WHENBUTTON_A_RELEASED_CALLBACK ); 
    }
 
-   if( _pinmode_btn_B &&!digitalRead(PIN_BTN_B) && _btn_B==0 ){ 
-     _btn_B=1; 
-     if(fire_event) mbit_event_fire( WHENBUTTON_B_PRESSED_CALLBACK ); 
-   }else if( _pinmode_btn_B &&digitalRead(PIN_BTN_B) && _btn_B==1 ){ 
-     _btn_B=0; 
-     if(fire_event) mbit_event_fire( WHENBUTTON_B_RELEASED_CALLBACK ); 
+   if( fire_event && e_is_button_down(PIN_BTN_B) ){ 
+     e_event_call( WHENBUTTON_B_PRESSED_CALLBACK ); 
+   }else if( fire_event && e_is_button_up(PIN_BTN_B) ){ 
+    e_event_call( WHENBUTTON_B_RELEASED_CALLBACK ); 
    }
 
 }
@@ -92,8 +64,8 @@ void mbit_btns_int_handler(){
     if ((NRF_GPIOTE->EVENTS_IN[ INTERRUPT_BTN_A ] == 1) && (NRF_GPIOTE->INTENSET & GPIOTE_INTENSET_IN2_Msk)) {
          NRF_GPIOTE->EVENTS_IN[ INTERRUPT_BTN_A ] = 0;
         // NVIC_ClearPendingIRQ(GPIOTE_IRQn);
-        // if(!digitalRead(PIN_BTN_A) && _btn_A==0 ){ _btn_A=1; mbit_event_fire( WHENBUTTON_A_PRESSED_CALLBACK ); }
-        // if( digitalRead(PIN_BTN_A) && _btn_A==1 ){ _btn_A=0; mbit_event_fire( WHENBUTTON_A_RELEASED_CALLBACK ); }
+        // if(!digitalRead(PIN_BTN_A) && _btn_A==0 ){ _btn_A=1; e_event_call( WHENBUTTON_A_PRESSED_CALLBACK ); }
+        // if( digitalRead(PIN_BTN_A) && _btn_A==1 ){ _btn_A=0; e_event_call( WHENBUTTON_A_RELEASED_CALLBACK ); }
         mbit_check_btns(true);
     }
 
@@ -101,8 +73,8 @@ void mbit_btns_int_handler(){
          NRF_GPIOTE->EVENTS_IN[ INTERRUPT_BTN_B ] = 0;
        //  NVIC_ClearPendingIRQ(GPIOTE_IRQn);
         
-        // if(!digitalRead(PIN_BTN_B) && _btn_B==0 ){ _btn_B=1; mbit_event_fire( WHENBUTTON_B_PRESSED_CALLBACK ); }
-        // if( digitalRead(PIN_BTN_B) && _btn_B==1 ){ _btn_B=0; mbit_event_fire( WHENBUTTON_B_RELEASED_CALLBACK ); }
+        // if(!digitalRead(PIN_BTN_B) && _btn_B==0 ){ _btn_B=1; e_event_call( WHENBUTTON_B_PRESSED_CALLBACK ); }
+        // if( digitalRead(PIN_BTN_B) && _btn_B==1 ){ _btn_B=0; e_event_call( WHENBUTTON_B_RELEASED_CALLBACK ); }
 
          mbit_check_btns(true);
            
@@ -122,12 +94,10 @@ void mbit_set_pin_interrupt( uint8_t pin){
     if( pin == PIN_BTN_A ){
         idx =INTERRUPT_BTN_A; //2
         int_config = GPIOTE_INTENSET_IN0_Set << GPIOTE_INTENSET_IN2_Pos; 
-        _pinmode_btn_A = 1;       
     }
     if( pin == PIN_BTN_B ){
         idx =INTERRUPT_BTN_B; //1
         int_config = GPIOTE_INTENSET_IN1_Set << GPIOTE_INTENSET_IN1_Pos; 
-        _pinmode_btn_B = 1;       
     }
        
     
@@ -152,35 +122,25 @@ void mbit_set_pin_interrupt( uint8_t pin){
 
 void mbit_check_pins(){
 
-    if( _pinmode_pin_P0 && !digitalRead(PIN_P0)==0 && _pin_P0==0 ){ _pin_P0 = 1; mbit_event_fire( WHENPIN_P0_PRESSED_CALLBACK );  }
-    if( _pinmode_pin_P0 && digitalRead(PIN_P0)==1 && _pin_P0==1 ){ _pin_P0=0;   mbit_event_fire( WHENPIN_P0_RELEASED_CALLBACK ); }
+    if( _pinmode_pin_P0 && !digitalRead(PIN_P0)==0 && _pin_P0==0 ){ _pin_P0 = 1; e_event_call( WHENPIN_P0_PRESSED_CALLBACK );  }
+    if( _pinmode_pin_P0 && digitalRead(PIN_P0)==1 && _pin_P0==1 ){ _pin_P0=0;   e_event_call( WHENPIN_P0_RELEASED_CALLBACK ); }
 
-    if( _pinmode_pin_P1 && !digitalRead(PIN_P1) && _pin_P1==0 ){ _pin_P1 = 1; mbit_event_fire( WHENPIN_P1_PRESSED_CALLBACK ); }
-    if( _pinmode_pin_P1 && digitalRead(PIN_P1) && _pin_P1==1 ){ _pin_P1=0;   mbit_event_fire( WHENPIN_P1_RELEASED_CALLBACK ); }
+    if( _pinmode_pin_P1 && !digitalRead(PIN_P1) && _pin_P1==0 ){ _pin_P1 = 1; e_event_call( WHENPIN_P1_PRESSED_CALLBACK ); }
+    if( _pinmode_pin_P1 && digitalRead(PIN_P1) && _pin_P1==1 ){ _pin_P1=0;   e_event_call( WHENPIN_P1_RELEASED_CALLBACK ); }
 
-    if( _pinmode_pin_P2 && !digitalRead(PIN_P2) && _pin_P2==0 ){ _pin_P2 = 1; mbit_event_fire( WHENPIN_P2_PRESSED_CALLBACK ); }
-    if( _pinmode_pin_P2 && digitalRead(PIN_P2) && _pin_P2==1 ){ _pin_P2=0;   mbit_event_fire( WHENPIN_P2_RELEASED_CALLBACK ); }
+    if( _pinmode_pin_P2 && !digitalRead(PIN_P2) && _pin_P2==0 ){ _pin_P2 = 1; e_event_call( WHENPIN_P2_PRESSED_CALLBACK ); }
+    if( _pinmode_pin_P2 && digitalRead(PIN_P2) && _pin_P2==1 ){ _pin_P2=0;   e_event_call( WHENPIN_P2_RELEASED_CALLBACK ); }
 
 }
 
 
 bool mbit_A_pressed(){
-   if( _pinmode_btn_A == 0){
-     pinMode(PIN_BTN_A, INPUT_PULLUP);
-     _pinmode_btn_A = 1; 
-     mbit_check_btns();
-    
-  }
-   return  _btn_A==1; 
+  e_set_mode(PIN_BTN_A, INPUT_PULLUP);
+  return  e_is_button(PIN_BTN_A); 
 }
 bool mbit_B_pressed(){
-  if( _pinmode_btn_B == 0){
-     pinMode(PIN_BTN_B, INPUT_PULLUP);
-     _pinmode_btn_B = 1; 
-     mbit_check_btns();
-    
-  }
-   return  _btn_B==1; 
+  e_set_mode(PIN_BTN_B, INPUT_PULLUP);
+  return  e_is_button(PIN_BTN_B); 
 }
 bool mbit_P0_pressed(){
   if( _pinmode_pin_P0 == 0){
@@ -207,37 +167,37 @@ bool mbit_P2_pressed(){
    return  _pin_P2==1; 
 }
 
-void mbit_on( uint8_t event,   void (*in_main_func)() ) {
+void mbit_on( uint8_t event_id,   void (*callback_fn)(uint8_t id) ) {
 
-    if(mbit_event_exists(event)) return;
+    if(e_event_exists(event_id)) return;
 
     //- AB Buttons
-    if( event == WHENBUTTON_A_PRESSED_CALLBACK || event == WHENBUTTON_A_RELEASED_CALLBACK )   mbit_set_pin_interrupt(PIN_BTN_A);
-    if( event == WHENBUTTON_B_PRESSED_CALLBACK || event == WHENBUTTON_B_RELEASED_CALLBACK )   mbit_set_pin_interrupt(PIN_BTN_B);
+    if( event_id == WHENBUTTON_A_PRESSED_CALLBACK || event_id == WHENBUTTON_A_RELEASED_CALLBACK )   mbit_set_pin_interrupt(PIN_BTN_A);
+    if( event_id == WHENBUTTON_B_PRESSED_CALLBACK || event_id == WHENBUTTON_B_RELEASED_CALLBACK )   mbit_set_pin_interrupt(PIN_BTN_B);
     //- Pins
-    if( event == WHENPIN_P0_PRESSED_CALLBACK || event == WHENPIN_P0_RELEASED_CALLBACK )  {
+    if( event_id == WHENPIN_P0_PRESSED_CALLBACK || event_id == WHENPIN_P0_RELEASED_CALLBACK )  {
           pinMode(PIN_P0, INPUT);
           _pinmode_pin_P0 = 1;
      }    
-    if( event == WHENPIN_P1_PRESSED_CALLBACK || event == WHENPIN_P1_RELEASED_CALLBACK ) {
+    if( event_id == WHENPIN_P1_PRESSED_CALLBACK || event_id == WHENPIN_P1_RELEASED_CALLBACK ) {
            pinMode(PIN_P1, INPUT);
            _pinmode_pin_P1 = 1;
     }       
-    if( event == WHENPIN_P2_PRESSED_CALLBACK || event == WHENPIN_P2_RELEASED_CALLBACK ) {
+    if( event_id == WHENPIN_P2_PRESSED_CALLBACK || event_id == WHENPIN_P2_RELEASED_CALLBACK ) {
            pinMode(PIN_P2, INPUT);
            _pinmode_pin_P2 = 1;
     }
     
-
+    e_event(event_id, callback_fn);
     //- Add callback to the event list
-    if(events_list == NULL ){
+    /*if(events_list == NULL ){
       events_list = ( mbit_event* ) calloc( ++events_count , sizeof(mbit_event));
     }else{
        events_list = ( mbit_event* ) realloc( events_list , ++events_count*sizeof(mbit_event)  );
     }
      
     events_list[events_count-1].id = event;
-    events_list[events_count-1].event = in_main_func;
+    events_list[events_count-1].event = in_main_func;*/
 }
 
 void mbit_timer2_tick(){
@@ -453,16 +413,16 @@ uint8_t mbit_gesture(){
 
 void mbit_raise_event_gesture(){
 
-    if( accel_gesture == WHENGESTURE_TILT_RIGHT_CALLBACK )  mbit_event_fire( WHENGESTURE_TILT_RIGHT_CALLBACK );  
-    if( accel_gesture == WHENGESTURE_FACE_DOWN_CALLBACK  )  mbit_event_fire( WHENGESTURE_FACE_DOWN_CALLBACK  );  
-    if( accel_gesture == WHENGESTURE_FREE_FALL_CALLBACK  )  mbit_event_fire( WHENGESTURE_FREE_FALL_CALLBACK  );  
-    if( accel_gesture == WHENGESTURE_TILT_LEFT_CALLBACK  )  mbit_event_fire( WHENGESTURE_TILT_LEFT_CALLBACK  );  
-    if( accel_gesture == WHENGESTURE_TILT_DOWN_CALLBACK  )  mbit_event_fire( WHENGESTURE_TILT_DOWN_CALLBACK  );  
-    if( accel_gesture == WHENGESTURE_TILT_UP_CALLBACK    )  mbit_event_fire( WHENGESTURE_TILT_UP_CALLBACK    );  
-    if( accel_gesture == WHENGESTURE_FACE_UP_CALLBACK    )  mbit_event_fire( WHENGESTURE_FACE_UP_CALLBACK    );  
-    if( accel_gesture == WHENGESTURE_3G_CALLBACK         )  mbit_event_fire( WHENGESTURE_3G_CALLBACK         );  
-    if( accel_gesture == WHENGESTURE_6G_CALLBACK         )  mbit_event_fire( WHENGESTURE_6G_CALLBACK         );  
-    if( accel_gesture == WHENGESTURE_8G_CALLBACK         )  mbit_event_fire( WHENGESTURE_8G_CALLBACK         );  
+    if( accel_gesture == WHENGESTURE_TILT_RIGHT_CALLBACK )  e_event_call( WHENGESTURE_TILT_RIGHT_CALLBACK );  
+    if( accel_gesture == WHENGESTURE_FACE_DOWN_CALLBACK  )  e_event_call( WHENGESTURE_FACE_DOWN_CALLBACK  );  
+    if( accel_gesture == WHENGESTURE_FREE_FALL_CALLBACK  )  e_event_call( WHENGESTURE_FREE_FALL_CALLBACK  );  
+    if( accel_gesture == WHENGESTURE_TILT_LEFT_CALLBACK  )  e_event_call( WHENGESTURE_TILT_LEFT_CALLBACK  );  
+    if( accel_gesture == WHENGESTURE_TILT_DOWN_CALLBACK  )  e_event_call( WHENGESTURE_TILT_DOWN_CALLBACK  );  
+    if( accel_gesture == WHENGESTURE_TILT_UP_CALLBACK    )  e_event_call( WHENGESTURE_TILT_UP_CALLBACK    );  
+    if( accel_gesture == WHENGESTURE_FACE_UP_CALLBACK    )  e_event_call( WHENGESTURE_FACE_UP_CALLBACK    );  
+    if( accel_gesture == WHENGESTURE_3G_CALLBACK         )  e_event_call( WHENGESTURE_3G_CALLBACK         );  
+    if( accel_gesture == WHENGESTURE_6G_CALLBACK         )  e_event_call( WHENGESTURE_6G_CALLBACK         );  
+    if( accel_gesture == WHENGESTURE_8G_CALLBACK         )  e_event_call( WHENGESTURE_8G_CALLBACK         );  
 }
 
 

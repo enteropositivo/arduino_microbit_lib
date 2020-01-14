@@ -59,7 +59,7 @@ extern void 	mbit_check_pins();
 extern void 	mbit_start();
 extern void     mbit_check_pins();
 extern uint32_t mbit_id();
-extern void 	mbit_on( uint8_t event,   void (*in_main_func)() ) ;
+extern void 	mbit_on( uint8_t event,   void (*callback_fn)(uint8_t) ) ;
 extern void 	mbit_clear();
 extern void		mbit_led_enable(bool display_onoff );
 extern bool		mbit_led_get(uint8_t x,   uint8_t y);
