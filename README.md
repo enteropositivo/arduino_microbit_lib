@@ -1,5 +1,5 @@
 
-BBC micro:bit library for Arduino to use with [eBlock Scratch based App](https://github.com/distintiva/eBlock)
+BBC micro:bit library for Arduino to use with [eBlock Scratch based App](https://github.com/enteropositivo/eBlock)
 
 **You can use with Arduino IDE, and arduino-cli too**
 
